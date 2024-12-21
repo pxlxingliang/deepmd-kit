@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """ASE calculator interface module."""
 
 from pathlib import (
@@ -5,8 +6,7 @@ from pathlib import (
 )
 from typing import (
     TYPE_CHECKING,
-    Dict,
-    List,
+    ClassVar,
     Optional,
     Union,
 )
@@ -17,8 +17,8 @@ from ase.calculators.calculator import (
     all_changes,
 )
 
-from deepmd import (
-    DeepPotential,
+from deepmd.infer import (
+    DeepPot,
 )
 
 if TYPE_CHECKING:
@@ -32,7 +32,7 @@ __all__ = ["DP"]
 class DP(Calculator):
     """Implementation of ASE deepmd calculator.
 
-    Implemented propertie are `energy`, `forces` and `stress`
+    Implemented properties are `energy`, `forces` and `stress`
 
     Parameters
     ----------
@@ -40,16 +40,20 @@ class DP(Calculator):
         path to the model
     label : str, optional
         calculator label, by default "DP"
-    type_dict : Dict[str, int], optional
+    type_dict : dict[str, int], optional
         mapping of element types and their numbers, best left None and the calculator
         will infer this information from model, by default None
+    neighbor_list : ase.neighborlist.NeighborList, optional
+        The neighbor list object. If None, then build the native neighbor list.
+    head : Union[str, None], optional
+        a specific model branch choosing from pretrained model, by default None
 
     Examples
     --------
     Compute potential energy
 
     >>> from ase import Atoms
-    >>> from deepmd.calculator import DP
+    >>> from deepmd.tf.calculator import DP
     >>> water = Atoms('H2O',
     >>>             positions=[(0.7601, 1.9270, 1),
     >>>                        (1.9575, 1, 1),
@@ -68,17 +72,29 @@ class DP(Calculator):
     """
 
     name = "DP"
-    implemented_properties = ["energy", "free_energy", "forces", "virial", "stress"]
+    implemented_properties: ClassVar[list[str]] = [
+        "energy",
+        "free_energy",
+        "forces",
+        "virial",
+        "stress",
+    ]
 
     def __init__(
         self,
         model: Union[str, "Path"],
         label: str = "DP",
-        type_dict: Dict[str, int] = None,
-        **kwargs
+        type_dict: Optional[dict[str, int]] = None,
+        neighbor_list=None,
+        head=None,
+        **kwargs,
     ) -> None:
         Calculator.__init__(self, label=label, **kwargs)
-        self.dp = DeepPotential(str(Path(model).resolve()))
+        self.dp = DeepPot(
+            str(Path(model).resolve()),
+            neighbor_list=neighbor_list,
+            head=head,
+        )
         if type_dict:
             self.type_dict = type_dict
         else:
@@ -89,19 +105,19 @@ class DP(Calculator):
     def calculate(
         self,
         atoms: Optional["Atoms"] = None,
-        properties: List[str] = ["energy", "forces", "virial"],
-        system_changes: List[str] = all_changes,
-    ):
+        properties: list[str] = ["energy", "forces", "virial"],
+        system_changes: list[str] = all_changes,
+    ) -> None:
         """Run calculation with deepmd model.
 
         Parameters
         ----------
         atoms : Optional[Atoms], optional
             atoms object to run the calculation on, by default None
-        properties : List[str], optional
+        properties : list[str], optional
             unused, only for function signature compatibility,
             by default ["energy", "forces", "stress"]
-        system_changes : List[str], optional
+        system_changes : list[str], optional
             unused, only for function signature compatibility, by default all_changes
         """
         if atoms is not None:

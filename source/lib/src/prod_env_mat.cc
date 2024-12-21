@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 #include "prod_env_mat.h"
 
 #include <string.h>
@@ -303,7 +304,8 @@ void deepmd::env_mat_nbor_update(InputNlist &inlist,
     max_nbor_size = _max_nbor_size;
 
     // copy nbor list from host to the device
-    std::vector<int> nbor_list_host(inum * max_nbor_size, 0);
+    std::vector<int> nbor_list_host(static_cast<size_t>(inum) * max_nbor_size,
+                                    0);
     int **_firstneigh = (int **)malloc(sizeof(int *) * inum);
     for (int ii = 0; ii < inum; ii++) {
       _firstneigh[ii] = nbor_list_dev + ii * max_nbor_size;
@@ -312,7 +314,7 @@ void deepmd::env_mat_nbor_update(InputNlist &inlist,
       }
     }
     memcpy_host_to_device(nbor_list_dev, &nbor_list_host[0],
-                          inum * max_nbor_size);
+                          static_cast<size_t>(inum) * max_nbor_size);
     memcpy_host_to_device(gpu_inlist.firstneigh, _firstneigh, inum);
     free(_firstneigh);
   }

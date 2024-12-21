@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 #include <gtest/gtest.h>
 
 #include <cmath>
@@ -85,7 +86,10 @@ class TestInferDeepPotA : public ::testing::Test {
     }
   };
 
-  void TearDown() override { remove("deeppot.pb"); };
+  void TearDown() override {
+    remove("deeppot.pb");
+    DP_DeleteDeepPot(dp);
+  };
 };
 
 TEST_F(TestInferDeepPotA, double_infer) {
@@ -118,6 +122,12 @@ TEST_F(TestInferDeepPotA, double_infer) {
   for (int ii = 0; ii < natoms * 9; ++ii) {
     EXPECT_LT(fabs(atomic_virial[ii] - expected_v[ii]), 1e-10);
   }
+
+  delete ener_;
+  delete[] force_;
+  delete[] virial_;
+  delete[] atomic_ener_;
+  delete[] atomic_virial_;
 }
 
 TEST_F(TestInferDeepPotA, float_infer) {
@@ -150,6 +160,11 @@ TEST_F(TestInferDeepPotA, float_infer) {
   for (int ii = 0; ii < natoms * 9; ++ii) {
     EXPECT_LT(fabs(atomic_virial[ii] - expected_v[ii]), 1e-6);
   }
+  delete ener_;
+  delete[] force_;
+  delete[] virial_;
+  delete[] atomic_ener_;
+  delete[] atomic_virial_;
 }
 
 TEST_F(TestInferDeepPotA, cutoff) {
@@ -162,10 +177,16 @@ TEST_F(TestInferDeepPotA, numb_types) {
   EXPECT_EQ(numb_types, 2);
 }
 
+TEST_F(TestInferDeepPotA, numb_types_spin) {
+  int numb_types_spin = DP_DeepPotGetNumbTypesSpin(dp);
+  EXPECT_EQ(numb_types_spin, 0);
+}
+
 TEST_F(TestInferDeepPotA, type_map) {
   const char* type_map = DP_DeepPotGetTypeMap(dp);
   char expected_type_map[] = "O H";
   EXPECT_EQ(strcmp(type_map, expected_type_map), 0);
+  DP_DeleteChar(type_map);
 }
 
 class TestInferDeepPotANoPBC : public ::testing::Test {
@@ -246,7 +267,11 @@ class TestInferDeepPotANoPBC : public ::testing::Test {
     }
   };
 
-  void TearDown() override { remove("deeppot.pb"); };
+  void TearDown() override {
+    remove("deeppot.pb");
+
+    DP_DeleteDeepPot(dp);
+  };
 };
 
 TEST_F(TestInferDeepPotANoPBC, double_infer) {
@@ -279,6 +304,11 @@ TEST_F(TestInferDeepPotANoPBC, double_infer) {
   for (int ii = 0; ii < natoms * 9; ++ii) {
     EXPECT_LT(fabs(atomic_virial[ii] - expected_v[ii]), 1e-10);
   }
+  delete ener_;
+  delete[] force_;
+  delete[] virial_;
+  delete[] atomic_ener_;
+  delete[] atomic_virial_;
 }
 
 TEST_F(TestInferDeepPotANoPBC, float_infer) {
@@ -311,4 +341,9 @@ TEST_F(TestInferDeepPotANoPBC, float_infer) {
   for (int ii = 0; ii < natoms * 9; ++ii) {
     EXPECT_LT(fabs(atomic_virial[ii] - expected_v[ii]), 1e-6);
   }
+  delete ener_;
+  delete[] force_;
+  delete[] virial_;
+  delete[] atomic_ener_;
+  delete[] atomic_virial_;
 }

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 #include <fcntl.h>
 #include <gtest/gtest.h>
 #include <sys/stat.h>
@@ -126,7 +127,7 @@ class TestInferDeepPotAFparamAparamNFrames : public ::testing::Test {
     EXPECT_EQ(nframes * natoms * 3, expected_f.size());
     EXPECT_EQ(nframes * natoms * 9, expected_v.size());
     expected_tot_e.resize(nframes);
-    expected_tot_v.resize(nframes * 9);
+    expected_tot_v.resize(static_cast<size_t>(nframes) * 9);
     std::fill(expected_tot_e.begin(), expected_tot_e.end(), 0.);
     std::fill(expected_tot_v.begin(), expected_tot_v.end(), 0.);
     for (int kk = 0; kk < nframes; ++kk) {
@@ -767,7 +768,7 @@ class TestInferDeepPotAFparamAparamNFramesSingleParam : public ::testing::Test {
     EXPECT_EQ(nframes * natoms * 3, expected_f.size());
     EXPECT_EQ(nframes * natoms * 9, expected_v.size());
     expected_tot_e.resize(nframes);
-    expected_tot_v.resize(nframes * 9);
+    expected_tot_v.resize(static_cast<size_t>(nframes) * 9);
     std::fill(expected_tot_e.begin(), expected_tot_e.end(), 0.);
     std::fill(expected_tot_v.begin(), expected_tot_v.end(), 0.);
     for (int kk = 0; kk < nframes; ++kk) {

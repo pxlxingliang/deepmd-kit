@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 #pragma once
 #include <gtest/gtest.h>
 
@@ -41,7 +42,7 @@ inline void _fold_back(std::vector<VALUETYPE> &out,
                        const int nall,
                        const int ndim,
                        const int nframes = 1) {
-  out.resize(nframes * nloc * ndim);
+  out.resize(static_cast<size_t>(nframes) * nloc * ndim);
   _fold_back<VALUETYPE>(out.begin(), in.begin(), mapping, nloc, nall, ndim,
                         nframes);
 }
