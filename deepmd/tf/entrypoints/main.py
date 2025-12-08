@@ -22,6 +22,7 @@ from deepmd.tf.common import (
     clear_session,
 )
 from deepmd.tf.entrypoints import (
+    change_bias,
     compress,
     convert,
     freeze,
@@ -35,7 +36,7 @@ from deepmd.tf.nvnmd.entrypoints.train import (
     train_nvnmd,
 )
 
-__all__ = ["main", "parse_args", "get_ll", "main_parser"]
+__all__ = ["get_ll", "main", "main_parser", "parse_args"]
 
 
 def main(args: Optional[Union[list[str], argparse.Namespace]] = None) -> None:
@@ -86,6 +87,8 @@ def main(args: Optional[Union[list[str], argparse.Namespace]] = None) -> None:
         compress(**dict_args)
     elif args.command == "convert-from":
         convert(**dict_args)
+    elif args.command == "change-bias":
+        change_bias(**dict_args)
     elif args.command == "train-nvnmd":  # nvnmd
         train_nvnmd(**dict_args)
     elif args.command is None:

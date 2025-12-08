@@ -327,10 +327,10 @@ def test_pair_deepmd_virial(lammps) -> None:
     lammps.variable("eatom atom c_peatom")
     for ii in range(9):
         jj = [0, 4, 8, 3, 6, 7, 1, 2, 5][ii]
-        lammps.variable(f"pressure{jj} equal c_pressure[{ii+1}]")
+        lammps.variable(f"pressure{jj} equal c_pressure[{ii + 1}]")
     for ii in range(9):
         jj = [0, 4, 8, 3, 6, 7, 1, 2, 5][ii]
-        lammps.variable(f"virial{jj} atom c_virial[{ii+1}]")
+        lammps.variable(f"virial{jj} atom c_virial[{ii + 1}]")
     lammps.dump(
         "1 all custom 1 dump id " + " ".join([f"v_virial{ii}" for ii in range(9)])
     )
@@ -340,7 +340,7 @@ def test_pair_deepmd_virial(lammps) -> None:
         assert lammps.atoms[ii].force == pytest.approx(
             expected_f[lammps.atoms[ii].id - 1]
         )
-    idx_map = lammps.lmp.numpy.extract_atom("id") - 1
+    idx_map = lammps.lmp.numpy.extract_atom("id")[: coord.shape[0]] - 1
     assert np.array(lammps.variables["eatom"].value) == pytest.approx(
         expected_ae[idx_map]
     )
@@ -395,10 +395,10 @@ def test_pair_deepmd_model_devi_virial(lammps) -> None:
     lammps.variable("eatom atom c_peatom")
     for ii in range(9):
         jj = [0, 4, 8, 3, 6, 7, 1, 2, 5][ii]
-        lammps.variable(f"pressure{jj} equal c_pressure[{ii+1}]")
+        lammps.variable(f"pressure{jj} equal c_pressure[{ii + 1}]")
     for ii in range(9):
         jj = [0, 4, 8, 3, 6, 7, 1, 2, 5][ii]
-        lammps.variable(f"virial{jj} atom c_virial[{ii+1}]")
+        lammps.variable(f"virial{jj} atom c_virial[{ii + 1}]")
     lammps.dump(
         "1 all custom 1 dump id " + " ".join([f"v_virial{ii}" for ii in range(9)])
     )
@@ -408,7 +408,7 @@ def test_pair_deepmd_model_devi_virial(lammps) -> None:
         assert lammps.atoms[ii].force == pytest.approx(
             expected_f[lammps.atoms[ii].id - 1]
         )
-    idx_map = lammps.lmp.numpy.extract_atom("id") - 1
+    idx_map = lammps.lmp.numpy.extract_atom("id")[: coord.shape[0]] - 1
     assert np.array(lammps.variables["eatom"].value) == pytest.approx(
         expected_ae[idx_map]
     )
@@ -533,7 +533,7 @@ def test_pair_deepmd_virial_real(lammps_real) -> None:
     lammps_real.compute("virial all centroid/stress/atom NULL pair")
     for ii in range(9):
         jj = [0, 4, 8, 3, 6, 7, 1, 2, 5][ii]
-        lammps_real.variable(f"virial{jj} atom c_virial[{ii+1}]")
+        lammps_real.variable(f"virial{jj} atom c_virial[{ii + 1}]")
     lammps_real.dump(
         "1 all custom 1 dump id " + " ".join([f"v_virial{ii}" for ii in range(9)])
     )
@@ -545,7 +545,7 @@ def test_pair_deepmd_virial_real(lammps_real) -> None:
         assert lammps_real.atoms[ii].force == pytest.approx(
             expected_f[lammps_real.atoms[ii].id - 1] * constants.force_metal2real
         )
-    idx_map = lammps_real.lmp.numpy.extract_atom("id") - 1
+    idx_map = lammps_real.lmp.numpy.extract_atom("id")[: coord.shape[0]] - 1
     for ii in range(9):
         assert np.array(
             lammps_real.variables[f"virial{ii}"].value
@@ -592,7 +592,7 @@ def test_pair_deepmd_model_devi_virial_real(lammps_real) -> None:
     lammps_real.compute("virial all centroid/stress/atom NULL pair")
     for ii in range(9):
         jj = [0, 4, 8, 3, 6, 7, 1, 2, 5][ii]
-        lammps_real.variable(f"virial{jj} atom c_virial[{ii+1}]")
+        lammps_real.variable(f"virial{jj} atom c_virial[{ii + 1}]")
     lammps_real.dump(
         "1 all custom 1 dump id " + " ".join([f"v_virial{ii}" for ii in range(9)])
     )
@@ -604,7 +604,7 @@ def test_pair_deepmd_model_devi_virial_real(lammps_real) -> None:
         assert lammps_real.atoms[ii].force == pytest.approx(
             expected_f[lammps_real.atoms[ii].id - 1] * constants.force_metal2real
         )
-    idx_map = lammps_real.lmp.numpy.extract_atom("id") - 1
+    idx_map = lammps_real.lmp.numpy.extract_atom("id")[: coord.shape[0]] - 1
     for ii in range(9):
         assert np.array(
             lammps_real.variables[f"virial{ii}"].value

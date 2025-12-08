@@ -470,9 +470,9 @@ class DescrptSeA(DescrptSe):
             The suffix of the scope
         """
         # do some checks before the mocel compression process
-        assert (
-            not self.filter_resnet_dt
-        ), "Model compression error: descriptor resnet_dt must be false!"
+        assert not self.filter_resnet_dt, (
+            "Model compression error: descriptor resnet_dt must be false!"
+        )
         for tt in self.exclude_types:
             if (tt[0] not in range(self.ntypes)) or (tt[1] not in range(self.ntypes)):
                 raise RuntimeError(
@@ -1462,6 +1462,7 @@ class DescrptSeA(DescrptSe):
                 resnet_dt=self.filter_resnet_dt,
                 variables=self.embedding_net_variables,
                 excluded_types=self.exclude_types,
+                trainable=self.trainable,
                 suffix=suffix,
             ),
             "env_mat": EnvMat(self.rcut_r, self.rcut_r_smth).serialize(),

@@ -253,9 +253,9 @@ class DescrptSeAtten(DescrptSeA):
         Constructor
         """
         if not (nvnmd_cfg.enable and (nvnmd_cfg.version == 1)):
-            assert Version(TF_VERSION) > Version(
-                "2"
-            ), "se_atten only support tensorflow version 2.0 or higher."
+            assert Version(TF_VERSION) > Version("2"), (
+                "se_atten only support tensorflow version 2.0 or higher."
+            )
         if ntypes == 0:
             raise ValueError("`model/type_map` is not set or empty!")
         self.stripped_type_embedding = stripped_type_embedding
@@ -449,9 +449,9 @@ class DescrptSeAtten(DescrptSeA):
             The suffix of the type embedding scope, only for DescrptDPA1Compat
         """
         # do some checks before the mocel compression process
-        assert (
-            not self.filter_resnet_dt
-        ), "Model compression error: descriptor resnet_dt must be false!"
+        assert not self.filter_resnet_dt, (
+            "Model compression error: descriptor resnet_dt must be false!"
+        )
         for tt in self.exclude_types:
             if (tt[0] not in range(self.ntypes)) or (tt[1] not in range(self.ntypes)):
                 raise RuntimeError(
@@ -1593,6 +1593,7 @@ class DescrptSeAtten(DescrptSeA):
                 bias=bias,
                 use_timestep=False,
                 precision=self.precision.name,
+                trainable=self.trainable,
             )
             matrix_list = [
                 attention_layer_params[layer_idx][key]["matrix"]
@@ -1611,6 +1612,7 @@ class DescrptSeAtten(DescrptSeA):
                 bias=bias,
                 use_timestep=False,
                 precision=self.precision.name,
+                trainable=self.trainable,
             )
             out_proj["matrix"] = attention_layer_params[layer_idx]["c_out"]["matrix"]
             if bias:
@@ -1654,6 +1656,7 @@ class DescrptSeAtten(DescrptSeA):
         variables: dict,
         suffix: str = "",
         type_one_side: bool = False,
+        trainable: bool = True,
     ) -> dict:
         """Serialize network.
 
@@ -1679,6 +1682,8 @@ class DescrptSeAtten(DescrptSeA):
             If 'False', type embeddings of both neighbor and central atoms are considered.
             If 'True', only type embeddings of neighbor atoms are considered.
             Default is 'False'.
+        trainable : bool
+            Whether the network is trainable
 
         Returns
         -------
@@ -1719,6 +1724,7 @@ class DescrptSeAtten(DescrptSeA):
                     activation_function=activation_function,
                     resnet_dt=resnet_dt,
                     precision=self.precision.name,
+                    trainable=trainable,
                 )
             assert embeddings[network_idx] is not None
             if weight_name == "idt":
@@ -1983,6 +1989,7 @@ class DescrptSeAtten(DescrptSeA):
                 resnet_dt=self.filter_resnet_dt,
                 variables=self.embedding_net_variables,
                 excluded_types=self.exclude_types,
+                trainable=self.trainable,
                 suffix=suffix,
             ),
             "attention_layers": self.serialize_attention_layers(
@@ -2032,6 +2039,7 @@ class DescrptSeAtten(DescrptSeA):
                         variables=self.two_side_embeeding_net_variables,
                         suffix=suffix,
                         type_one_side=self.type_one_side,
+                        trainable=self.trainable,
                     )
                 }
             )
@@ -2363,9 +2371,9 @@ class DescrptDPA1Compat(DescrptSeAtten):
         tebd_suffix : str, optional
             Same as suffix.
         """
-        assert (
-            tebd_suffix == ""
-        ), "DescrptDPA1Compat must use the same tebd_suffix as suffix!"
+        assert tebd_suffix == "", (
+            "DescrptDPA1Compat must use the same tebd_suffix as suffix!"
+        )
         super().enable_compression(
             min_nbor_dist,
             graph,

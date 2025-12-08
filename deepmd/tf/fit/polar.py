@@ -6,6 +6,9 @@ from typing import (
 
 import numpy as np
 
+from deepmd.env import (
+    GLOBAL_NP_FLOAT_PRECISION,
+)
 from deepmd.tf.common import (
     cast_precision,
     get_activation_func,
@@ -27,8 +30,12 @@ from deepmd.tf.loss.loss import (
 from deepmd.tf.loss.tensor import (
     TensorLoss,
 )
+from deepmd.tf.utils.errors import (
+    GraphWithoutTensorError,
+)
 from deepmd.tf.utils.graph import (
     get_fitting_net_variables_from_graph_def,
+    get_tensor_by_name_from_graph,
 )
 from deepmd.tf.utils.network import (
     one_layer,
@@ -63,6 +70,8 @@ class PolarFittingSeA(Fitting):
             Number of frame parameters
     numb_aparam
             Number of atomic parameters
+    dim_case_embd
+            Dimension of case specific embedding.
     sel_type : list[int]
             The atom types selected to have an atomic polarizability prediction. If is None, all atoms are selected.
     fit_diag : bool
@@ -84,6 +93,13 @@ class PolarFittingSeA(Fitting):
         different fitting nets for different atom types.
     type_map: list[str], Optional
             A list of strings. Give the name to each type of atoms.
+    default_fparam: list[float], optional
+        The default frame parameter. If set, when `fparam.npy` files are not included in the data system,
+        this value will be used as the default value for the frame parameter in the fitting net.
+    trainable : list[bool], Optional
+        If the weights of fitting net are trainable.
+        Suppose that we have :math:`N_l` hidden layers in the fitting net,
+        this list is of length :math:`N_l + 1`, specifying if the hidden layers and the output layer are trainable.
     """
 
     def __init__(
@@ -95,6 +111,7 @@ class PolarFittingSeA(Fitting):
         resnet_dt: bool = True,
         numb_fparam: int = 0,
         numb_aparam: int = 0,
+        dim_case_embd: int = 0,
         sel_type: Optional[list[int]] = None,
         fit_diag: bool = True,
         scale: Optional[list[float]] = None,
@@ -106,6 +123,8 @@ class PolarFittingSeA(Fitting):
         uniform_seed: bool = False,
         mixed_types: bool = False,
         type_map: Optional[list[str]] = None,  # to be compat with input
+        default_fparam: Optional[list[float]] = None,  # to be compat with input
+        trainable: Optional[list[bool]] = None,
         **kwargs,
     ) -> None:
         """Constructor."""
@@ -133,9 +152,9 @@ class PolarFittingSeA(Fitting):
             self.scale = np.array([1.0 for ii in range(self.ntypes)])
         else:
             if isinstance(self.scale, list):
-                assert (
-                    len(self.scale) == ntypes
-                ), "Scale should be a list of length ntypes."
+                assert len(self.scale) == ntypes, (
+                    "Scale should be a list of length ntypes."
+                )
             elif isinstance(self.scale, float):
                 self.scale = [self.scale for _ in range(ntypes)]
             else:
@@ -162,16 +181,31 @@ class PolarFittingSeA(Fitting):
         self.type_map = type_map
         self.numb_fparam = numb_fparam
         self.numb_aparam = numb_aparam
+        self.dim_case_embd = dim_case_embd
+        self.default_fparam = default_fparam
         if numb_fparam > 0:
             raise ValueError("numb_fparam is not supported in the dipole fitting")
         if numb_aparam > 0:
             raise ValueError("numb_aparam is not supported in the dipole fitting")
+        if dim_case_embd > 0:
+            raise ValueError("dim_case_embd is not supported in TensorFlow.")
+        if default_fparam is not None:
+            raise ValueError("default_fparam is not supported in TensorFlow.")
         self.fparam_avg = None
         self.fparam_std = None
         self.fparam_inv_std = None
         self.aparam_avg = None
         self.aparam_std = None
         self.aparam_inv_std = None
+        if trainable is None:
+            self.trainable = [True for _ in range(len(self.n_neuron) + 1)]
+        elif isinstance(trainable, bool):
+            self.trainable = [trainable] * (len(self.n_neuron) + 1)
+        else:
+            self.trainable = trainable
+        assert len(self.trainable) == len(self.n_neuron) + 1, (
+            "length of trainable should be that of n_neuron + 1"
+        )
 
     def get_sel_type(self) -> list[int]:
         """Get selected atom types."""
@@ -302,6 +336,7 @@ class PolarFittingSeA(Fitting):
                     uniform_seed=self.uniform_seed,
                     initial_variables=self.fitting_net_variables,
                     mixed_prec=self.mixed_prec,
+                    trainable=self.trainable[ii],
                 )
             else:
                 layer = one_layer(
@@ -315,6 +350,7 @@ class PolarFittingSeA(Fitting):
                     uniform_seed=self.uniform_seed,
                     initial_variables=self.fitting_net_variables,
                     mixed_prec=self.mixed_prec,
+                    trainable=self.trainable[ii],
                 )
             if (not self.uniform_seed) and (self.seed is not None):
                 self.seed += self.seed_shift
@@ -337,6 +373,7 @@ class PolarFittingSeA(Fitting):
                 initial_variables=self.fitting_net_variables,
                 mixed_prec=self.mixed_prec,
                 final_layer=True,
+                trainable=self.trainable[-1],
             )
             if (not self.uniform_seed) and (self.seed is not None):
                 self.seed += self.seed_shift
@@ -423,6 +460,16 @@ class PolarFittingSeA(Fitting):
         atype = input_dict.get("atype", None)
         nframes = input_dict.get("nframes")
         start_index = 0
+
+        with tf.variable_scope("fitting_attr" + suffix, reuse=reuse):
+            self.t_constant_matrix = tf.get_variable(
+                "t_constant_matrix",
+                self.constant_matrix.shape,
+                dtype=GLOBAL_TF_FLOAT_PRECISION,
+                trainable=False,
+                initializer=tf.constant_initializer(self.constant_matrix),
+            )
+
         inputs = tf.reshape(input_d, [-1, self.dim_descrpt * natoms[0]])
         rot_mat = tf.reshape(rot_mat, [-1, self.dim_rot_mat * natoms[0]])
         if nframes is None:
@@ -446,7 +493,9 @@ class PolarFittingSeA(Fitting):
                 # nframes x nloc_masked
                 constant_matrix = tf.reshape(
                     tf.reshape(
-                        tf.tile(tf.repeat(self.constant_matrix, natoms[2:]), [nframes]),
+                        tf.tile(
+                            tf.repeat(self.t_constant_matrix, natoms[2:]), [nframes]
+                        ),
                         [nframes, -1],
                     )[nloc_mask],
                     [nframes, -1],
@@ -498,7 +547,9 @@ class PolarFittingSeA(Fitting):
                 # shift and scale
                 sel_type_idx = self.sel_type.index(type_i)
                 final_layer = final_layer * self.scale[sel_type_idx]
-                final_layer = final_layer + self.constant_matrix[sel_type_idx] * tf.eye(
+                final_layer = final_layer + tf.slice(
+                    self.t_constant_matrix, [sel_type_idx], [1]
+                ) * tf.eye(
                     3,
                     batch_shape=[tf.shape(inputs)[0], natoms[2 + type_i]],
                     dtype=GLOBAL_TF_FLOAT_PRECISION,
@@ -545,6 +596,16 @@ class PolarFittingSeA(Fitting):
         self.fitting_net_variables = get_fitting_net_variables_from_graph_def(
             graph_def, suffix=suffix
         )
+        if self.shift_diag:
+            try:
+                self.constant_matrix = get_tensor_by_name_from_graph(
+                    graph, f"fitting_attr{suffix}/t_constant_matrix"
+                )
+            except GraphWithoutTensorError:
+                warnings.warn(
+                    "You are trying to read a model trained with shift_diag=True, but the mean of the diagonal terms of the polarizability is not stored in the graph. This will lead to wrong inference results. You may train your model with the latest DeePMD-kit to avoid this issue.",
+                    stacklevel=2,
+                )
 
     def enable_mixed_precision(self, mixed_prec: Optional[dict] = None) -> None:
         """Receive the mixed precision setting.
@@ -578,21 +639,21 @@ class PolarFittingSeA(Fitting):
         data = {
             "@class": "Fitting",
             "type": "polar",
-            "@version": 3,
+            "@version": 5,
             "ntypes": self.ntypes,
             "dim_descrpt": self.dim_descrpt,
             "embedding_width": self.dim_rot_mat_1,
             "mixed_types": self.mixed_types,
-            "dim_out": 3,
             "neuron": self.n_neuron,
             "resnet_dt": self.resnet_dt,
             "numb_fparam": self.numb_fparam,
             "numb_aparam": self.numb_aparam,
+            "dim_case_embd": self.dim_case_embd,
+            "default_fparam": self.default_fparam,
             "activation_function": self.activation_function_name,
             "precision": self.fitting_precision.name,
             "exclude_types": [],
             "fit_diag": self.fit_diag,
-            "scale": list(self.scale),
             "shift_diag": self.shift_diag,
             "nets": self.serialize_network(
                 ntypes=self.ntypes,
@@ -603,9 +664,29 @@ class PolarFittingSeA(Fitting):
                 activation_function=self.activation_function_name,
                 resnet_dt=self.resnet_dt,
                 variables=self.fitting_net_variables,
+                trainable=self.trainable,
                 suffix=suffix,
             ),
+            "@variables": {
+                "fparam_avg": None,
+                "fparam_inv_std": None,
+                "aparam_avg": None,
+                "aparam_inv_std": None,
+                "case_embd": None,
+                "scale": self.scale.reshape(-1, 1),
+                "constant_matrix": self.constant_matrix.reshape(-1),
+                "bias_atom_e": np.zeros(
+                    (self.ntypes, self.dim_rot_mat_1), dtype=GLOBAL_NP_FLOAT_PRECISION
+                ),
+            },
             "type_map": self.type_map,
+            "var_name": "polar",
+            "rcond": None,
+            "tot_ener_zero": False,
+            "trainable": self.trainable,
+            "layer_name": None,
+            "use_aparam_as_mask": False,
+            "spin": None,
         }
         return data
 
@@ -625,13 +706,14 @@ class PolarFittingSeA(Fitting):
         """
         data = data.copy()
         check_version_compatibility(
-            data.pop("@version", 1), 3, 1
+            data.pop("@version", 1), 5, 1
         )  # to allow PT version.
         fitting = cls(**data)
         fitting.fitting_net_variables = cls.deserialize_network(
             data["nets"],
             suffix=suffix,
         )
+        fitting.constant_matrix = data["@variables"]["constant_matrix"].ravel()
         return fitting
 
 

@@ -12,8 +12,10 @@ from pathlib import (
     Path,
 )
 from typing import (
+    Any,
     ClassVar,
     Optional,
+    Union,
 )
 
 import h5py
@@ -34,7 +36,7 @@ class DPPath(ABC):
         mode, by default "r"
     """
 
-    def __new__(cls, path: str, mode: str = "r"):
+    def __new__(cls, path: str, mode: str = "r") -> "DPPath":
         if cls is DPPath:
             if os.path.isdir(path):
                 return super().__new__(DPOSPath)
@@ -55,7 +57,7 @@ class DPPath(ABC):
         """
 
     @abstractmethod
-    def load_txt(self, **kwargs) -> np.ndarray:
+    def load_txt(self, **kwargs: Any) -> np.ndarray:
         """Load NumPy array from text.
 
         Returns
@@ -114,6 +116,10 @@ class DPPath(ABC):
         """Check if self is directory."""
 
     @abstractmethod
+    def __getnewargs__(self) -> tuple[str, str]:
+        """Return the arguments to be passed to __new__ when unpickling an instance."""
+
+    @abstractmethod
     def __truediv__(self, key: str) -> "DPPath":
         """Used for / operator."""
 
@@ -128,10 +134,10 @@ class DPPath(ABC):
     def __repr__(self) -> str:
         return f"{type(self)} ({self!s})"
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         return str(self) == str(other)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(str(self))
 
     @property
@@ -157,19 +163,19 @@ class DPOSPath(DPPath):
 
     Parameters
     ----------
-    path : str
+    path : Union[str, Path]
         path
     mode : str, optional
         mode, by default "r"
     """
 
-    def __init__(self, path: str, mode: str = "r") -> None:
+    def __init__(self, path: Union[str, Path], mode: str = "r") -> None:
         super().__init__()
         self.mode = mode
-        if isinstance(path, Path):
-            self.path = path
-        else:
-            self.path = Path(path)
+        self.path = Path(path)
+
+    def __getnewargs__(self) -> tuple[str, str]:
+        return (self.path, self.mode)
 
     def load_numpy(self) -> np.ndarray:
         """Load NumPy array.
@@ -181,7 +187,7 @@ class DPOSPath(DPPath):
         """
         return np.load(str(self.path))
 
-    def load_txt(self, **kwargs) -> np.ndarray:
+    def load_txt(self, **kwargs: Any) -> np.ndarray:
         """Load NumPy array from text.
 
         Returns
@@ -300,9 +306,14 @@ class DPH5Path(DPPath):
         # so we do not support file names containing #...
         s = path.split("#")
         self.root_path = s[0]
+        if not os.path.isfile(self.root_path):
+            raise FileNotFoundError(f"{self.root_path} not found")
         self.root = self._load_h5py(s[0], mode)
         # h5 path: default is the root path
         self._name = s[1] if len(s) > 1 else "/"
+
+    def __getnewargs__(self) -> tuple[str, str]:
+        return (self.root_path, self.mode)
 
     @classmethod
     @lru_cache(None)
@@ -331,7 +342,7 @@ class DPH5Path(DPPath):
         """
         return self.root[self._name][:]
 
-    def load_txt(self, dtype: Optional[np.dtype] = None, **kwargs) -> np.ndarray:
+    def load_txt(self, dtype: Optional[np.dtype] = None, **kwargs: Any) -> np.ndarray:
         """Load NumPy array from text.
 
         Returns
@@ -406,7 +417,7 @@ class DPH5Path(DPPath):
     __file_new_keys: ClassVar[dict[h5py.File, list[str]]] = {}
 
     @property
-    def _new_keys(self):
+    def _new_keys(self) -> list[str]:
         """New keys that haven't been cached."""
         self.__file_new_keys.setdefault(self.root, [])
         return self.__file_new_keys[self.root]

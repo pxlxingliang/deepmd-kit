@@ -50,7 +50,7 @@ static const char cite_user_deepmd_package[] =
     "energy representation and molecular dynamics}},\n"
     "  pages = {178--184}\n"
     "}\n"
-    "@misc{Zeng_JChemPhys_2023_v159_p054801,\n"
+    "@article{Zeng_JChemPhys_2023_v159_p054801,\n"
     "  title  = {{DeePMD-kit v2: A software package for deep potential "
     "models}},\n"
     "  author =   {Jinzhe Zeng and Duo Zhang and Denghui Lu and Pinghui Mo and "
@@ -82,9 +82,42 @@ static const char cite_user_deepmd_package[] =
     "  year =    2023,\n"
     "  pages  =   054801,\n"
     "  doi =      {10.1063/5.0155600},\n"
+    "}\n"
+    "@Article{Zeng_JChemTheoryComput_2025_v21_p4375,\n"
+    "  author =   {Jinzhe Zeng and Duo Zhang and Anyang Peng and Xiangyu "
+    "Zhang and Sensen\n"
+    "             He and Yan Wang and Xinzijian Liu and Hangrui Bi and Yifan "
+    "Li and Chun\n"
+    "             Cai and Chengqian Zhang and Yiming Du and Jia-Xin Zhu and "
+    "Pinghui Mo\n"
+    "             and Zhengtao Huang and Qiyu Zeng and Shaochen Shi and "
+    "Xuejian Qin and\n"
+    "             Zhaoxi Yu and Chenxing Luo and Ye Ding and Yun-Pei Liu and "
+    "Ruosong Shi\n"
+    "             and Zhenyu Wang and Sigbj{\\o}rn L{\\o}land Bore and Junhan "
+    "Chang and\n"
+    "             Zhe Deng and Zhaohan Ding and Siyuan Han and Wanrun Jiang "
+    "and Guolin\n"
+    "             Ke and Zhaoqing Liu and Denghui Lu and Koki Muraoka and "
+    "Hananeh Oliaei\n"
+    "             and Anurag Kumar Singh and Haohui Que and Weihong Xu and "
+    "Zhangmancang\n"
+    "             Xu and Yong-Bin Zhuang and Jiayu Dai and Timothy J. Giese "
+    "and Weile\n"
+    "             Jia and Ben Xu and Darrin M. York and Linfeng Zhang and Han "
+    "Wang},\n"
+    "    title =    {{DeePMD-kit v3: A Multiple-Backend Framework for Machine "
+    "Learning\n"
+    "             Potentials}},\n"
+    "  journal =  {J. Chem. Theory Comput.},\n"
+    "  year =     2025,\n"
+    "  volume =   21,\n"
+    "  number =   9,\n"
+    "  pages =    {4375--4385},\n"
+    "  doi =      {10.1021/acs.jctc.5c00340},\n"
     "}\n\n";
 
-PairDeepMD::PairDeepMD(LAMMPS *lmp)
+PairDeepMD::PairDeepMD(LAMMPS* lmp)
     : PairDeepBaseModel(
           lmp, cite_user_deepmd_package, deep_pot, deep_pot_model_devi) {
   // Constructor body can be empty
@@ -108,10 +141,10 @@ void PairDeepMD::compute(int eflag, int vflag) {
   }
   bool do_ghost = true;
   //  dpa2 communication
-  commdata_ = (CommBrickDeepMD *)comm;
-  double **x = atom->x;
-  double **f = atom->f;
-  int *type = atom->type;
+  commdata_ = (CommBrickDeepMD*)comm;
+  double** x = atom->x;
+  double** f = atom->f;
+  int* type = atom->type;
   int nlocal = atom->nlocal;
   int nghost = 0;
   if (do_ghost) {
@@ -216,7 +249,7 @@ void PairDeepMD::compute(int eflag, int vflag) {
         try {
           deep_pot.compute(dener, dforce, dvirial, dcoord, dtype, dbox, nghost,
                            lmp_list, ago, fparam, daparam);
-        } catch (deepmd_compat::deepmd_exception &e) {
+        } catch (deepmd_compat::deepmd_exception& e) {
           error->one(FLERR, e.what());
         }
       }
@@ -227,7 +260,7 @@ void PairDeepMD::compute(int eflag, int vflag) {
         try {
           deep_pot.compute(dener, dforce, dvirial, deatom, dvatom, dcoord,
                            dtype, dbox, nghost, lmp_list, ago, fparam, daparam);
-        } catch (deepmd_compat::deepmd_exception &e) {
+        } catch (deepmd_compat::deepmd_exception& e) {
           error->one(FLERR, e.what());
         }
         if (eflag_atom) {
@@ -279,7 +312,7 @@ void PairDeepMD::compute(int eflag, int vflag) {
           deep_pot_model_devi.compute(all_energy, all_force, all_virial, dcoord,
                                       dtype, dbox, nghost, lmp_list, ago,
                                       fparam, daparam);
-        } catch (deepmd_compat::deepmd_exception &e) {
+        } catch (deepmd_compat::deepmd_exception& e) {
           error->one(FLERR, e.what());
         }
       } else {
@@ -288,7 +321,7 @@ void PairDeepMD::compute(int eflag, int vflag) {
                                       all_atom_energy, all_atom_virial, dcoord,
                                       dtype, dbox, nghost, lmp_list, ago,
                                       fparam, daparam);
-        } catch (deepmd_compat::deepmd_exception &e) {
+        } catch (deepmd_compat::deepmd_exception& e) {
           error->one(FLERR, e.what());
         }
       }
@@ -416,7 +449,7 @@ void PairDeepMD::compute(int eflag, int vflag) {
         if (out_each == 1) {
           vector<double> std_f_all(atom->natoms);
           // Gather std_f and tags
-          tagint *tag = atom->tag;
+          tagint* tag = atom->tag;
           int nprocs = comm->nprocs;
           // Grow arrays if necessary
           if (atom->natoms > stdf_comm_buff_size) {
@@ -463,7 +496,7 @@ void PairDeepMD::compute(int eflag, int vflag) {
     if (numb_models == 1) {
       try {
         deep_pot.compute(dener, dforce, dvirial, dcoord, dtype, dbox);
-      } catch (deepmd_compat::deepmd_exception &e) {
+      } catch (deepmd_compat::deepmd_exception& e) {
         error->one(FLERR, e.what());
       }
     } else {
@@ -492,7 +525,7 @@ void PairDeepMD::compute(int eflag, int vflag) {
   }
 }
 
-static bool is_key(const string &input) {
+static bool is_key(const string& input) {
   vector<string> keys;
   keys.push_back("out_freq");
   keys.push_back("out_file");
@@ -515,7 +548,7 @@ static bool is_key(const string &input) {
   return false;
 }
 
-void PairDeepMD::settings(int narg, char **arg) {
+void PairDeepMD::settings(int narg, char** arg) {
   if (narg <= 0) {
     error->all(FLERR, "Illegal pair_style command");
   }
@@ -535,7 +568,7 @@ void PairDeepMD::settings(int narg, char **arg) {
   if (numb_models == 1) {
     try {
       deep_pot.init(arg[0], get_node_rank(), get_file_content(arg[0]));
-    } catch (deepmd_compat::deepmd_exception &e) {
+    } catch (deepmd_compat::deepmd_exception& e) {
       error->one(FLERR, e.what());
     }
     cutoff = deep_pot.cutoff() * dist_unit_cvt_factor;
@@ -548,7 +581,7 @@ void PairDeepMD::settings(int narg, char **arg) {
       deep_pot.init(arg[0], get_node_rank(), get_file_content(arg[0]));
       deep_pot_model_devi.init(models, get_node_rank(),
                                get_file_content(models));
-    } catch (deepmd_compat::deepmd_exception &e) {
+    } catch (deepmd_compat::deepmd_exception& e) {
       error->one(FLERR, e.what());
     }
     cutoff = deep_pot_model_devi.cutoff() * dist_unit_cvt_factor;
@@ -765,7 +798,7 @@ void PairDeepMD::settings(int narg, char **arg) {
    set coeffs for one or more type pairs
 ------------------------------------------------------------------------- */
 
-void PairDeepMD::coeff(int narg, char **arg) {
+void PairDeepMD::coeff(int narg, char** arg) {
   if (!allocated) {
     allocate();
   }
@@ -856,7 +889,7 @@ void PairDeepMD::coeff(int narg, char **arg) {
 
 /* ---------------------------------------------------------------------- */
 
-int PairDeepMD::pack_reverse_comm(int n, int first, double *buf) {
+int PairDeepMD::pack_reverse_comm(int n, int first, double* buf) {
   int i, m, last;
 
   m = 0;
@@ -880,7 +913,7 @@ int PairDeepMD::pack_reverse_comm(int n, int first, double *buf) {
 
 /* ---------------------------------------------------------------------- */
 
-void PairDeepMD::unpack_reverse_comm(int n, int *list, double *buf) {
+void PairDeepMD::unpack_reverse_comm(int n, int* list, double* buf) {
   int i, j, m;
 
   m = 0;

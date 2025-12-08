@@ -6,6 +6,7 @@ from pathlib import (
 )
 from typing import (
     TYPE_CHECKING,
+    Any,
     ClassVar,
     Optional,
     Union,
@@ -24,6 +25,9 @@ from deepmd.infer import (
 if TYPE_CHECKING:
     from ase import (
         Atoms,
+    )
+    from ase.neighborlist import (
+        NeighborList,
     )
 
 __all__ = ["DP"]
@@ -85,9 +89,9 @@ class DP(Calculator):
         model: Union[str, "Path"],
         label: str = "DP",
         type_dict: Optional[dict[str, int]] = None,
-        neighbor_list=None,
-        head=None,
-        **kwargs,
+        neighbor_list: Optional["NeighborList"] = None,
+        head: Optional[str] = None,
+        **kwargs: Any,
     ) -> None:
         Calculator.__init__(self, label=label, **kwargs)
         self.dp = DeepPot(
@@ -130,7 +134,12 @@ class DP(Calculator):
             cell = None
         symbols = self.atoms.get_chemical_symbols()
         atype = [self.type_dict[k] for k in symbols]
-        e, f, v = self.dp.eval(coords=coord, cells=cell, atom_types=atype)
+
+        fparam = self.atoms.info.get("fparam", None)
+        aparam = self.atoms.info.get("aparam", None)
+        e, f, v = self.dp.eval(
+            coords=coord, cells=cell, atom_types=atype, fparam=fparam, aparam=aparam
+        )[:3]
         self.results["energy"] = e[0][0]
         # see https://gitlab.com/ase/ase/-/merge_requests/2485
         self.results["free_energy"] = e[0][0]
@@ -138,12 +147,13 @@ class DP(Calculator):
         self.results["virial"] = v[0].reshape(3, 3)
 
         # convert virial into stress for lattice relaxation
-        if "stress" in properties:
-            if sum(atoms.get_pbc()) > 0:
-                # the usual convention (tensile stress is positive)
-                # stress = -virial / volume
-                stress = -0.5 * (v[0].copy() + v[0].copy().T) / atoms.get_volume()
-                # Voigt notation
-                self.results["stress"] = stress.flat[[0, 4, 8, 5, 2, 1]]
-            else:
-                raise PropertyNotImplementedError
+        if cell is not None:
+            # the usual convention (tensile stress is positive)
+            # stress = -virial / volume
+            stress = -0.5 * (v[0].copy() + v[0].copy().T) / atoms.get_volume()
+            # Voigt notation
+            self.results["stress"] = stress.flat[[0, 4, 8, 5, 2, 1]]
+        elif "stress" in properties:
+            raise PropertyNotImplementedError
+        else:
+            pass
