@@ -300,7 +300,7 @@ class PolarFitting(GeneralFitting):
             out = out[:, :, None] * gr
         else:
             out = xp.reshape(out, (-1, self.embedding_width, self.embedding_width))
-            out = (out + xp.matrix_transpose(out)) / 2
+            # out = (out + xp.matrix_transpose(out)) / 2
             # out = np.einsum("bim,bmj->bij", out, gr)  # (nframes * nloc, m1, 3)
             out = out @ gr
         # out = np.einsum(
