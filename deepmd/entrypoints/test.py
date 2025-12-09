@@ -1134,7 +1134,7 @@ def test_polar(
         atomic=atomic,
         must=True,
         high_prec=False,
-        type_sel=dp.get_sel_type(),
+        # type_sel=dp.get_sel_type(),
     )
 
     test_data = data.get_test()
